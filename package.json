@@ -1,0 +1,17 @@
+{
+  "name": "song-request",
+  "version": "1.0.0",
+  "description": "驻唱点歌系统 - 客人扫码点歌，驻唱实时管理",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3"
+  }
+}

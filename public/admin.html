@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>驻唱管理 - 点歌台</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+</head>
+<body>
+  <!-- 登录弹窗 -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+      <h2>🎤 驻唱管理</h2>
+      <input type="password" id="loginPassword" placeholder="请输入管理密码" autocomplete="off">
+      <button class="btn-login" id="btnLogin">登 录</button>
+      <p class="error-msg" id="loginError"></p>
+    </div>
+  </div>
+
+  <!-- 管理主界面 -->
+  <div class="admin-container" id="adminMain" style="display:none;">
+    <div class="admin-header">
+      <h1>🎤 驻唱管理面板</h1>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:13px;color:var(--text-secondary);" id="clockDisplay"></span>
+        <button class="btn-logout" id="btnLogout">退出</button>
+      </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card">
+        <div class="stat-num" id="statPending">0</div>
+        <div class="stat-label">待处理</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statAccepted">0</div>
+        <div class="stat-label">已接单</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statCompleted">0</div>
+        <div class="stat-label">已完成</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statTotal">0</div>
+        <div class="stat-label">总歌曲</div>
+      </div>
+    </div>
+
+    <div class="admin-grid">
+      <!-- 左侧：请求队列 -->
+      <div class="admin-panel" style="grid-row: span 3;">
+        <h2>📋 实时请求队列 <span style="font-size:12px;color:var(--text-muted);" id="queueCount"></span></h2>
+        <div id="tabBar" style="display:flex;gap:8px;margin-bottom:12px;">
+          <button class="category-tag active" data-tab="pending">待处理</button>
+          <button class="category-tag" data-tab="accepted">已接单</button>
+          <button class="category-tag" data-tab="completed">已完成</button>
+          <button class="category-tag" data-tab="rejected">已拒绝</button>
+        </div>
+        <div class="request-queue" id="requestQueue">
+          <div class="empty-state"><div class="icon">🎵</div><p>暂无请求</p></div>
+        </div>
+      </div>
+
+      <!-- 右上：扫码点歌二维码 -->
+      <div class="admin-panel" style="text-align:center;">
+        <h2>📱 客人扫码点歌</h2>
+        <div id="qrcodeContainer" style="display:flex;justify-content:center;align-items:center;min-height:200px;background:#fff;border-radius:8px;padding:16px;margin:8px 0;">
+          <span style="color:#999;">加载中...</span>
+        </div>
+        <p style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+          截图打印放在桌上，客人扫码即可点歌
+        </p>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:2px;" id="guestUrl"></p>
+      </div>
+
+      <!-- 右中：添加歌曲 -->
+      <div class="admin-panel">
+        <h2>➕ 歌曲库管理</h2>
+        <div class="add-song-form">
+          <input type="text" id="inputSongName" placeholder="歌曲名">
+          <input type="text" id="inputArtist" placeholder="歌手">
+          <select id="inputCategory">
+            <option value="">分类</option>
+            <option value="流行">流行</option>
+            <option value="民谣">民谣</option>
+            <option value="摇滚">摇滚</option>
+            <option value="经典">经典</option>
+            <option value="R&B">R&B</option>
+            <option value="古风">古风</option>
+          </select>
+          <button class="btn-add" id="btnAddSong">添加</button>
+        </div>
+        <input type="text" id="songSearchInput" placeholder="搜索歌曲..." style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:20px;color:var(--text-primary);font-size:13px;outline:none;margin-bottom:8px;">
+        <div class="song-manage-list" id="songManageList"></div>
+      </div>
+
+      <!-- 右下：今日热门 -->
+      <div class="admin-panel">
+        <h2>🔥 今日热门 Top 10</h2>
+        <ul class="hot-list" id="hotList">
+          <li class="empty-state" style="padding:20px;"><p>暂无数据</p></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastContainer"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script>
+    // ===== Admin 全局 =====
+    const socket = io();
+    let adminToken = localStorage.getItem('adminToken') || '';
+    let currentTab = 'pending';
+    let allRequests = [];
+
+    // ===== DOM =====
+    const loginOverlay = document.getElementById('loginOverlay');
+    const adminMain = document.getElementById('adminMain');
+    const loginPassword = document.getElementById('loginPassword');
+    const loginError = document.getElementById('loginError');
+    const requestQueue = document.getElementById('requestQueue');
+    const toastContainer = document.getElementById('toastContainer');
+    const songManageList = document.getElementById('songManageList');
+    const hotList = document.getElementById('hotList');
+
+    // ===== Toast =====
+    function showToast(msg, type) {
+      const t = document.createElement('div');
+      t.className = 'toast ' + (type || 'success');
+      t.textContent = msg;
+      toastContainer.appendChild(t);
+      setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(() => t.remove(), 300); }, 2500);
+    }
+
+    // ===== 认证 =====
+    async function api(url, options = {}) {
+      options.headers = options.headers || {};
+      options.headers['X-Admin-Token'] = adminToken;
+      return fetch(url, options);
+    }
+
+    // ===== 登录 =====
+    async function doLogin() {
+      const password = loginPassword.value.trim();
+      if (!password) { loginError.textContent = '请输入密码'; return; }
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          adminToken = data.token;
+          localStorage.setItem('adminToken', adminToken);
+          loginOverlay.style.display = 'none';
+          adminMain.style.display = 'block';
+          socket.emit('join-admin', adminToken);
+          initAdmin();
+        } else {
+          loginError.textContent = data.error || '密码错误';
+        }
+      } catch (err) {
+        loginError.textContent = '网络错误';
+      }
+    }
+
+    document.getElementById('btnLogin').addEventListener('click', doLogin);
+    loginPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+    document.getElementById('btnLogout').addEventListener('click', () => {
+      localStorage.removeItem('adminToken');
+      location.reload();
+    });
+
+    // ===== WebSocket 事件 =====
+    socket.on('queue-update', (requests) => {
+      // 更新 pending 列表
+      updateRequestsInTab('pending', requests);
+      if (currentTab === 'pending') renderQueue(requests);
+      updateStats();
+    });
+
+    socket.on('new-request', (request) => {
+      showToast(`新点歌: ${request.song_name} - ${request.song_artist}`, 'success');
+      // 播放提示音
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.value = 880; osc.type = 'sine';
+        gain.gain.value = 0.1;
+        osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+      } catch(e) {}
+    });
+
+    // ===== 初始化管理端 =====
+    async function initAdmin() {
+      await loadAllRequests();
+      await loadSongManage();
+      await loadStats();
+      updateStats();
+      updateClock();
+      setInterval(updateClock, 30000);
+      generateQRCode();
+    }
+
+    // ===== 二维码生成 =====
+    function generateQRCode() {
+      const guestUrl = window.location.origin + '/';
+      document.getElementById('guestUrl').textContent = '点歌地址: ' + guestUrl;
+      document.getElementById('qrcodeContainer').innerHTML = '';
+
+      try {
+        new QRCode(document.getElementById('qrcodeContainer'), {
+          text: guestUrl,
+          width: 200,
+          height: 200,
+          colorDark: '#000000',
+          colorLight: '#ffffff',
+        });
+      } catch (e) {
+        // 如果 CDN 没加载，用 Google Chart API 兜底
+        const img = document.createElement('img');
+        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(guestUrl);
+        img.width = 200;
+        img.height = 200;
+        img.style.borderRadius = '4px';
+        document.getElementById('qrcodeContainer').appendChild(img);
+      }
+    }
+
+    // ===== 时钟 =====
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clockDisplay').textContent =
+        now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // ===== 加载请求 =====
+    async function loadAllRequests() {
+      try {
+        const res = await api('/api/requests');
+        allRequests = await res.json();
+        updateStats();
+      } catch (err) { console.error(err); }
+    }
+
+    function getRequestsByStatus(status) {
+      if (status === 'pending') return allRequests.filter(r => r.status === 'pending');
+      if (status === 'accepted') return allRequests.filter(r => r.status === 'accepted');
+      if (status === 'completed') return allRequests.filter(r => r.status === 'completed');
+      if (status === 'rejected') return allRequests.filter(r => r.status === 'rejected');
+      return allRequests;
+    }
+
+    function updateRequestsInTab(status, requests) {
+      // 移除该状态的旧数据，合并新数据
+      allRequests = allRequests.filter(r => r.status !== status);
+      allRequests = allRequests.concat(requests);
+    }
+
+    // ===== 渲染队列 =====
+    function renderQueue(requests) {
+      if (!requests || requests.length === 0) {
+        requestQueue.innerHTML = '<div class="empty-state"><div class="icon">🎵</div><p>暂无请求</p></div>';
+        document.getElementById('queueCount').textContent = '';
+        return;
+      }
+      document.getElementById('queueCount').textContent = `(${requests.length}首)`;
+
+      requestQueue.innerHTML = requests.map((r, i) => {
+        const time = new Date(r.created_at + 'Z').toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const statusCls = r.status;
+        return `
+          <div class="queue-item ${statusCls}" data-request-id="${r.id}">
+            <div class="q-num">${i + 1}</div>
+            <div class="q-info">
+              <div class="q-song">${escHtml(r.song_name)}</div>
+              <div class="q-artist">${escHtml(r.song_artist)}</div>
+              <div class="q-time">🕐 ${time} ${r.guest_name ? '· ' + escHtml(r.guest_name) : ''}</div>
+            </div>
+            <div class="queue-actions">
+              ${renderActions(r)}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // 绑定事件
+      bindQueueActions();
+    }
+
+    function renderActions(r) {
+      if (r.status === 'pending') {
+        return `
+          <button class="btn-sm accept" data-action="accept" data-id="${r.id}">接单</button>
+          <button class="btn-sm reject" data-action="reject" data-id="${r.id}">拒绝</button>
+          <button class="btn-sm pin" data-action="pin" data-id="${r.id}">置顶</button>
+          <button class="btn-sm move" data-action="move-up" data-id="${r.id}">↑</button>
+          <button class="btn-sm move" data-action="move-down" data-id="${r.id}">↓</button>
+        `;
+      } else if (r.status === 'accepted') {
+        return `
+          <button class="btn-sm complete" data-action="complete" data-id="${r.id}">完成</button>
+        `;
+      }
+      return '';
+    }
+
+    function bindQueueActions() {
+      requestQueue.querySelectorAll('button[data-action]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const action = btn.dataset.action;
+          const id = btn.dataset.id;
+
+          if (action === 'accept' || action === 'reject' || action === 'complete') {
+            await api(`/api/requests/${id}/status`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: action === 'complete' ? 'completed' : action === 'accept' ? 'accepted' : 'rejected' })
+            });
+          } else if (action === 'pin') {
+            await api(`/api/requests/${id}/pin`, { method: 'POST' });
+          } else if (action === 'move-up' || action === 'move-down') {
+            const dir = action === 'move-up' ? 'up' : 'down';
+            await api(`/api/requests/${id}/move`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ direction: dir })
+            });
+          }
+
+          await loadAllRequests();
+          renderCurrentTab();
+          updateStats();
+        });
+      });
+    }
+
+    // ===== Tab 切换 =====
+    document.getElementById('tabBar').addEventListener('click', (e) => {
+      if (e.target.classList.contains('category-tag')) {
+        document.querySelectorAll('#tabBar .category-tag').forEach(t => t.classList.remove('active'));
+        e.target.classList.add('active');
+        currentTab = e.target.dataset.tab;
+        renderCurrentTab();
+      }
+    });
+
+    function renderCurrentTab() {
+      const requests = getRequestsByStatus(currentTab);
+      renderQueue(requests);
+    }
+
+    // ===== 统计 =====
+    function updateStats() {
+      document.getElementById('statPending').textContent = allRequests.filter(r => r.status === 'pending').length;
+      document.getElementById('statAccepted').textContent = allRequests.filter(r => r.status === 'accepted').length;
+      document.getElementById('statCompleted').textContent = allRequests.filter(r => r.status === 'completed').length;
+    }
+
+    async function loadStats() {
+      try {
+        const res = await api('/api/stats');
+        const stats = await res.json();
+        document.getElementById('statTotal').textContent = stats.todayHot.reduce((s, item) => s + item.count, 0);
+        renderHotList(stats.todayHot);
+      } catch (err) { console.error(err); }
+    }
+
+    function renderHotList(songs) {
+      if (!songs || songs.length === 0) {
+        hotList.innerHTML = '<li class="empty-state"><p>今日暂无数据</p></li>';
+        return;
+      }
+      hotList.innerHTML = songs.map((s, i) => `
+        <li>
+          <span class="hot-rank ${i < 3 ? 'top3' : ''}">${i + 1}</span>
+          <span>${escHtml(s.name)} - ${escHtml(s.artist)}</span>
+          <span class="hot-count">${s.count}次</span>
+        </li>
+      `).join('');
+    }
+
+    // ===== 歌曲管理 =====
+    async function loadSongManage() {
+      try {
+        const res = await api('/api/songs');
+        const songs = await res.json();
+        renderSongManage(songs);
+      } catch (err) { console.error(err); }
+    }
+
+    function renderSongManage(songs) {
+      if (songs.length === 0) {
+        songManageList.innerHTML = '<div class="empty-state"><p>暂无歌曲</p></div>';
+        return;
+      }
+      songManageList.innerHTML = songs.map(s => `
+        <div class="song-manage-item">
+          <span>${escHtml(s.name)} - <span style="color:var(--text-secondary);">${escHtml(s.artist)}</span></span>
+          <button class="btn-delete" data-id="${s.id}" title="删除">×</button>
+        </div>
+      `).join('');
+
+      songManageList.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('确定删除这首歌曲吗？')) return;
+          await api(`/api/songs/${btn.dataset.id}`, { method: 'DELETE' });
+          showToast('已删除');
+          loadSongManage();
+        });
+      });
+    }
+
+    document.getElementById('btnAddSong').addEventListener('click', async () => {
+      const name = document.getElementById('inputSongName').value.trim();
+      const artist = document.getElementById('inputArtist').value.trim();
+      const category = document.getElementById('inputCategory').value;
+      if (!name || !artist) { showToast('请填写歌曲名和歌手', 'error'); return; }
+
+      await api('/api/songs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, artist, category })
+      });
+      showToast('歌曲已添加 ✅');
+      document.getElementById('inputSongName').value = '';
+      document.getElementById('inputArtist').value = '';
+      loadSongManage();
+    });
+
+    // 搜索歌曲管理
+    document.getElementById('songSearchInput').addEventListener('input', async function() {
+      const search = this.value.trim();
+      const res = await api(`/api/songs?search=${encodeURIComponent(search)}`);
+      const songs = await res.json();
+      renderSongManage(songs);
+    });
+
+    // ===== 工具函数 =====
+    function escHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str || '';
+      return div.innerHTML;
+    }
+
+    // ===== 启动 =====
+    if (adminToken) {
+      // 验证 token
+      api('/api/admin/verify').then(res => {
+        if (res.ok) {
+          loginOverlay.style.display = 'none';
+          adminMain.style.display = 'block';
+          socket.emit('join-admin', adminToken);
+          initAdmin();
+        } else {
+          localStorage.removeItem('adminToken');
+          adminToken = '';
+        }
+      });
+    }
+
+    loginPassword.focus();
+
+    // 定期刷新统计
+    setInterval(() => { if (adminToken) loadStats(); }, 60000);
+  </script>
+</body>
+</html>

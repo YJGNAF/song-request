@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>点歌台 - 音乐点歌</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
+</head>
+<body>
+  <div class="header">
+    <h1>🎵 点歌台</h1>
+    <p class="subtitle">扫码点歌 · 为你而唱</p>
+  </div>
+
+  <div class="container">
+    <!-- 搜索框 -->
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="搜索歌曲名或歌手..." autocomplete="off">
+      <span class="search-icon">🔍</span>
+    </div>
+
+    <!-- 分类标签 -->
+    <div class="category-tags" id="categoryTags">
+      <button class="category-tag active" data-category="">全部</button>
+    </div>
+
+    <!-- 歌曲列表 -->
+    <div class="song-list" id="songList">
+      <div class="empty-state">
+        <div class="icon">🎶</div>
+        <p>加载中...</p>
+      </div>
+    </div>
+
+    <!-- 我的点歌 -->
+    <div class="my-requests" id="myRequests">
+      <h3>📋 我的点歌</h3>
+      <div class="empty" id="myRequestsEmpty">还没有点歌，快去选歌吧 🎤</div>
+      <div id="myRequestsList"></div>
+    </div>
+  </div>
+
+  <div id="toastContainer"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
