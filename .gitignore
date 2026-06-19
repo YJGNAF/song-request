@@ -3,3 +3,4 @@ song-request.db
 song-request.db-shm
 song-request.db-wal
 .env
+cloudflared.exe
