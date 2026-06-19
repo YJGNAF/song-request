@@ -61,6 +61,34 @@ body {
   margin-bottom: 4px;
 }
 
+/* ===== 品牌名 ===== */
+.brand {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 8px 0 4px;
+}
+
+.brand-cn {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  color: #fff;
+  text-shadow: 0 0 40px rgba(233, 68, 96, 0.5), 0 0 80px rgba(233, 68, 96, 0.2);
+}
+
+.brand-en {
+  font-size: 18px;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  font-style: italic;
+  position: relative;
+  top: 2px;
+}
+
 .header .subtitle {
   font-size: 13px;
   color: var(--text-secondary);
