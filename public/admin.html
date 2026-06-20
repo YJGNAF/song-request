@@ -219,17 +219,17 @@
       try {
         new QRCode(document.getElementById('qrcodeContainer'), {
           text: guestUrl,
-          width: 170,
-          height: 170,
+          width: 340,
+          height: 340,
           colorDark: '#000000',
           colorLight: '#ffffff',
         });
       } catch (e) {
         // 如果 CDN 没加载，用 Google Chart API 兜底
         const img = document.createElement('img');
-        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=' + encodeURIComponent(guestUrl);
-        img.width = 170;
-        img.height = 170;
+        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=340x340&data=' + encodeURIComponent(guestUrl);
+        img.width = 340;
+        img.height = 340;
         img.style.borderRadius = '4px';
         document.getElementById('qrcodeContainer').appendChild(img);
       }
