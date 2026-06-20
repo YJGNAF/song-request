@@ -89,6 +89,23 @@ body {
   top: 2px;
 }
 
+/* ===== 管理页大号品牌名 ===== */
+.admin-brand {
+  gap: 8px;
+  margin-bottom: 2px;
+  padding: 0;
+}
+
+.admin-brand-cn {
+  font-size: 36px !important;
+}
+
+.admin-brand-en {
+  font-size: 24px !important;
+  top: 4px;
+}
+
+/* ===== 副标题 ===== */
 .header .subtitle {
   font-size: 13px;
   color: var(--text-secondary);
