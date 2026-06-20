@@ -92,17 +92,18 @@ body {
 /* ===== 管理页大号品牌名 ===== */
 .admin-brand {
   gap: 8px;
-  margin-bottom: 2px;
-  padding: 0;
+  margin: 0 auto;
+  padding: 8px 0;
+  justify-content: center;
 }
 
 .admin-brand-cn {
-  font-size: 36px !important;
+  font-size: 48px !important;
 }
 
 .admin-brand-en {
-  font-size: 24px !important;
-  top: 4px;
+  font-size: 32px !important;
+  top: 6px;
 }
 
 /* ===== 副标题 ===== */
