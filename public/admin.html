@@ -70,7 +70,7 @@
       <!-- 右上：扫码点歌二维码 -->
       <div class="admin-panel" style="text-align:center;">
         <h2>📱 微信扫码点歌</h2>
-        <div id="qrcodeContainer" style="display:flex;justify-content:center;align-items:center;min-height:200px;background:#fff;border-radius:8px;padding:16px;margin:8px 0;">
+        <div id="qrcodeContainer" style="display:flex;justify-content:center;align-items:center;min-height:160px;background:#fff;border-radius:8px;padding:8px;margin:8px 0;border:3px solid var(--accent-red);">
           <span style="color:#999;">加载中...</span>
         </div>
         <p style="font-size:11px;color:var(--text-muted);margin-top:8px;" id="guestUrl"></p>
@@ -219,17 +219,17 @@
       try {
         new QRCode(document.getElementById('qrcodeContainer'), {
           text: guestUrl,
-          width: 200,
-          height: 200,
+          width: 170,
+          height: 170,
           colorDark: '#000000',
           colorLight: '#ffffff',
         });
       } catch (e) {
         // 如果 CDN 没加载，用 Google Chart API 兜底
         const img = document.createElement('img');
-        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(guestUrl);
-        img.width = 200;
-        img.height = 200;
+        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=' + encodeURIComponent(guestUrl);
+        img.width = 170;
+        img.height = 170;
         img.style.borderRadius = '4px';
         document.getElementById('qrcodeContainer').appendChild(img);
       }
