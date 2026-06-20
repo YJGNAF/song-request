@@ -15,6 +15,7 @@
   --text-muted: #7a6a5a;
   --accent: #FF6B35;
   --accent-hover: #FF8C42;
+  --accent-red: #e94560;
   --success: #2ecc71;
   --warning: #f39c12;
   --danger: #e74c3c;
@@ -54,7 +55,7 @@ body {
 
 .header h1 {
   font-size: 24px;
-  background: linear-gradient(135deg, var(--accent), #FFB347);
+  background: linear-gradient(135deg, var(--accent), var(--accent-red));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -76,14 +77,14 @@ body {
   font-weight: 900;
   letter-spacing: 0.15em;
   color: #fff;
-  text-shadow: 0 0 40px rgba(255, 107, 53, 0.5), 0 0 80px rgba(255, 107, 53, 0.2);
+  text-shadow: 0 0 40px rgba(233, 68, 96, 0.5), 0 0 80px rgba(255, 107, 53, 0.3);
 }
 
 .brand-en {
   font-size: 18px;
   font-weight: 300;
   letter-spacing: 0.12em;
-  color: var(--accent);
+  color: #e94560;
   font-style: italic;
   position: relative;
   top: 2px;
@@ -211,7 +212,7 @@ body {
   width: 44px;
   height: 44px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--accent), #FFB347);
+  background: linear-gradient(135deg, var(--accent), var(--accent-red));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -275,8 +276,8 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.4); }
-  50% { box-shadow: 0 0 0 8px rgba(255, 107, 53, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(233, 68, 96, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(233, 68, 96, 0); }
 }
 
 /* ===== 我的点歌 ===== */
@@ -407,7 +408,7 @@ body {
 
 .admin-header h1 {
   font-size: 22px;
-  background: linear-gradient(135deg, var(--accent), #FFB347);
+  background: linear-gradient(135deg, var(--accent), var(--accent-red));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -477,7 +478,7 @@ body {
 }
 
 @keyframes highlight {
-  0% { background: rgba(255, 107, 53, 0.3); }
+  0% { background: rgba(233, 68, 96, 0.3); }
   100% { background: var(--bg-secondary); }
 }
 
