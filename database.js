@@ -74,6 +74,12 @@ function execute(sql, params = []) {
   return { lastInsertRowid: result ? result.id : 0 };
 }
 
+function migrateDB() {
+  // 给旧表添加 singer 列（如果不存在）
+  try { db.run("ALTER TABLE songs ADD COLUMN singer TEXT DEFAULT 'singer1'"); } catch(e) {}
+  try { db.run("ALTER TABLE requests ADD COLUMN singer TEXT DEFAULT 'singer1'"); } catch(e) {}
+}
+
 function initTables() {
   db.run(`
     CREATE TABLE IF NOT EXISTS songs (
@@ -81,6 +87,7 @@ function initTables() {
       name TEXT NOT NULL,
       artist TEXT NOT NULL,
       category TEXT DEFAULT '',
+      singer TEXT DEFAULT 'singer1',
       created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
@@ -91,12 +98,14 @@ function initTables() {
       guest_name TEXT DEFAULT '',
       status TEXT DEFAULT 'pending' CHECK(status IN ('pending','accepted','rejected','completed')),
       sort_order INTEGER DEFAULT 0,
+      singer TEXT DEFAULT 'singer1',
       created_at DATETIME DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
     )
   `);
   db.run('CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status)');
   db.run('CREATE INDEX IF NOT EXISTS idx_requests_song ON requests(song_id)');
+  migrateDB();
   scheduleSave();
 }
 
@@ -154,7 +163,7 @@ function seedIfEmpty() {
 
 // ===== 歌曲操作 =====
 
-function getSongs(search = '', category = '') {
+function getSongs(search = '', category = '', singer = '') {
   let sql = 'SELECT * FROM songs WHERE 1=1';
   const params = [];
 
@@ -166,6 +175,10 @@ function getSongs(search = '', category = '') {
     sql += ' AND category = ?';
     params.push(category);
   }
+  if (singer) {
+    sql += ' AND singer = ?';
+    params.push(singer);
+  }
   sql += ' ORDER BY category, name';
   return queryAll(sql, params);
 }
@@ -174,8 +187,8 @@ function getCategories() {
   return queryAll("SELECT DISTINCT category FROM songs WHERE category != '' ORDER BY category");
 }
 
-function addSong(name, artist, category = '') {
-  return execute('INSERT INTO songs (name, artist, category) VALUES (?, ?, ?)', [name, artist, category]);
+function addSong(name, artist, category = '', singer = 'singer1') {
+  return execute('INSERT INTO songs (name, artist, category, singer) VALUES (?, ?, ?, ?)', [name, artist, category, singer]);
 }
 
 function deleteSong(id) {
@@ -189,7 +202,11 @@ function getSongCount() {
 // ===== 请求操作 =====
 
 function createRequest(songId, guestName = '') {
-  const result = execute('INSERT INTO requests (song_id, guest_name) VALUES (?, ?)', [songId, guestName]);
+  // 获取歌曲的 singer
+  const song = queryOne('SELECT singer FROM songs WHERE id = ?', [songId]);
+  const singer = song ? song.singer : 'singer1';
+
+  const result = execute('INSERT INTO requests (song_id, guest_name, singer) VALUES (?, ?, ?)', [songId, guestName, singer]);
   return queryOne(`
     SELECT r.*, s.name as song_name, s.artist as song_artist
     FROM requests r
@@ -198,7 +215,7 @@ function createRequest(songId, guestName = '') {
   `, [result.lastInsertRowid]);
 }
 
-function getRequests(status = '') {
+function getRequests(status = '', singer = '') {
   let sql = `
     SELECT r.*, s.name as song_name, s.artist as song_artist
     FROM requests r
@@ -210,6 +227,10 @@ function getRequests(status = '') {
   if (status) {
     sql += ' AND r.status = ?';
     params.push(status);
+  }
+  if (singer) {
+    sql += ' AND r.singer = ?';
+    params.push(singer);
   }
   sql += ' ORDER BY r.sort_order DESC, r.created_at ASC';
   return queryAll(sql, params);
@@ -253,23 +274,30 @@ function moveRequest(id, direction) {
   return getRequestById(id);
 }
 
-function getStats() {
+function getStats(singer = '') {
+  let singerWhere = '';
+  const params = [];
+  if (singer) {
+    singerWhere = ' AND r.singer = ?';
+    params.push(singer);
+  }
+
   const todayHot = queryAll(`
     SELECT s.name, s.artist, COUNT(r.id) as count
     FROM requests r
     JOIN songs s ON r.song_id = s.id
-    WHERE date(r.created_at) = date('now', 'localtime')
+    WHERE date(r.created_at) = date('now', 'localtime')${singerWhere}
     GROUP BY s.id
     ORDER BY count DESC
     LIMIT 10
-  `);
+  `, params);
 
   const statusCounts = queryAll(`
     SELECT status, COUNT(*) as count
     FROM requests
-    WHERE date(created_at) = date('now', 'localtime')
+    WHERE date(created_at) = date('now', 'localtime')${singerWhere}
     GROUP BY status
-  `);
+  `, params);
 
   return { todayHot, statusCounts };
 }

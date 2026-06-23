@@ -27,6 +27,7 @@
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:14px;color:var(--accent);font-weight:600;" id="singerNameDisplay"></span>
         <span style="font-size:13px;color:var(--text-secondary);" id="clockDisplay"></span>
         <button class="btn-logout" id="btnLogout">退出</button>
       </div>
@@ -129,6 +130,8 @@
     // ===== Admin 全局 =====
     const socket = io();
     let adminToken = localStorage.getItem('adminToken') || '';
+    let singerId = localStorage.getItem('singerId') || 'singer1';
+    let singerName = localStorage.getItem('singerName') || '';
     let currentTab = 'pending';
     let allRequests = [];
 
@@ -171,7 +174,11 @@
         const data = await res.json();
         if (data.success) {
           adminToken = data.token;
+          singerId = data.singer ? data.singer.id : 'singer1';
+          singerName = data.singer ? data.singer.name : '';
           localStorage.setItem('adminToken', adminToken);
+          localStorage.setItem('singerId', singerId);
+          localStorage.setItem('singerName', singerName);
           loginOverlay.style.display = 'none';
           adminMain.style.display = 'block';
           socket.emit('join-admin', adminToken);
@@ -215,6 +222,8 @@
 
     // ===== 初始化管理端 =====
     async function initAdmin() {
+      document.getElementById('singerNameDisplay').textContent = '🎤 ' + singerName;
+      document.title = '碳炙Brew · ' + singerName;
       await loadAllRequests();
       await loadSongManage();
       await loadStats();
@@ -405,9 +414,11 @@
     }
 
     // ===== 歌曲管理 =====
-    async function loadSongManage() {
+    async function loadSongManage(search = '') {
       try {
-        const res = await api('/api/songs');
+        const params = new URLSearchParams({ singer: singerId });
+        if (search) params.set('search', search);
+        const res = await api('/api/songs?' + params.toString());
         const songs = await res.json();
         renderSongManage(songs);
       } catch (err) { console.error(err); }
@@ -455,9 +466,7 @@
     // 搜索歌曲管理
     document.getElementById('songSearchInput').addEventListener('input', async function() {
       const search = this.value.trim();
-      const res = await api(`/api/songs?search=${encodeURIComponent(search)}`);
-      const songs = await res.json();
-      renderSongManage(songs);
+      loadSongManage(search);
     });
 
     // ===== 工具函数 =====
@@ -470,14 +479,23 @@
     // ===== 启动 =====
     if (adminToken) {
       // 验证 token
-      api('/api/admin/verify').then(res => {
+      api('/api/admin/verify').then(async res => {
         if (res.ok) {
+          const data = await res.json();
+          if (data.singer) {
+            singerId = data.singer.id;
+            singerName = data.singer.name;
+            localStorage.setItem('singerId', singerId);
+            localStorage.setItem('singerName', singerName);
+          }
           loginOverlay.style.display = 'none';
           adminMain.style.display = 'block';
           socket.emit('join-admin', adminToken);
           initAdmin();
         } else {
           localStorage.removeItem('adminToken');
+          localStorage.removeItem('singerId');
+          localStorage.removeItem('singerName');
           adminToken = '';
         }
       });
