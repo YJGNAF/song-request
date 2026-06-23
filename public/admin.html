@@ -55,7 +55,7 @@
 
     <div class="admin-grid">
       <!-- 左侧：请求队列 -->
-      <div class="admin-panel" style="grid-row: span 3;">
+      <div class="admin-panel" style="grid-row: span 2;">
         <h2>📋 实时请求队列 <span style="font-size:12px;color:var(--text-muted);" id="queueCount"></span></h2>
         <div id="tabBar" style="display:flex;gap:8px;margin-bottom:12px;">
           <button class="category-tag active" data-tab="pending">待处理</button>
@@ -68,16 +68,7 @@
         </div>
       </div>
 
-      <!-- 右上：扫码点歌二维码 -->
-      <div class="admin-panel" style="text-align:center;">
-        <h2>📱 微信扫码点歌</h2>
-        <div id="qrcodeContainer" style="display:inline-flex;justify-content:center;align-items:center;background:#fff;padding:0;margin:8px 0;border:5px solid #e94560;border-radius:0;line-height:0;">
-          <span style="color:#999;">加载中...</span>
-        </div>
-        <p style="font-size:11px;color:var(--text-muted);margin-top:8px;" id="guestUrl"></p>
-      </div>
-
-      <!-- 右中：添加歌曲 -->
+      <!-- 右上：添加歌曲 -->
       <div class="admin-panel">
         <h2>➕ 歌曲库管理</h2>
         <div class="add-song-form">
@@ -125,7 +116,6 @@
   <div id="toastContainer"></div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script>
     // ===== Admin 全局 =====
     const socket = io();
@@ -231,32 +221,6 @@
       updateStats();
       updateClock();
       setInterval(updateClock, 30000);
-      generateQRCode();
-    }
-
-    // ===== 二维码生成 =====
-    function generateQRCode() {
-      const guestUrl = window.location.origin + '/';
-      document.getElementById('guestUrl').textContent = '点歌地址: ' + guestUrl;
-      document.getElementById('qrcodeContainer').innerHTML = '';
-
-      try {
-        new QRCode(document.getElementById('qrcodeContainer'), {
-          text: guestUrl,
-          width: 340,
-          height: 340,
-          colorDark: '#000000',
-          colorLight: '#ffffff',
-        });
-      } catch (e) {
-        // 如果 CDN 没加载，用 Google Chart API 兜底
-        const img = document.createElement('img');
-        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=340x340&data=' + encodeURIComponent(guestUrl);
-        img.width = 340;
-        img.height = 340;
-        img.style.borderRadius = '4px';
-        document.getElementById('qrcodeContainer').appendChild(img);
-      }
     }
 
     // ===== 时钟 =====
