@@ -84,6 +84,7 @@ app.post('/api/requests', (req, res) => {
     // 实时通知管理端
     io.to('admin').emit('new-request', request);
     io.to('admin').emit('queue-update', db.getRequests('pending'));
+    broadcastQueue();
 
     res.json(request);
   } catch (err) {
@@ -126,6 +127,7 @@ app.put('/api/requests/:id/status', adminAuth, (req, res) => {
     // 通知对应客人
     io.emit('status-update', updated);
     io.to('admin').emit('queue-update', db.getRequests('pending'));
+    broadcastQueue();
 
     res.json(updated);
   } catch (err) {
@@ -166,6 +168,31 @@ app.get('/api/stats', adminAuth, (req, res) => {
   }
 });
 
+// 获取打赏配置（客人端公开）
+app.get('/api/tip-config', (req, res) => {
+  try {
+    const wechat = db.getConfig('tip_wechat_qr');
+    const alipay = db.getConfig('tip_alipay_qr');
+    const message = db.getConfig('tip_message') || '喜欢我的演唱吗？打个赏吧~';
+    res.json({ wechat, alipay, message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 设置打赏配置（管理端）
+app.put('/api/tip-config', adminAuth, (req, res) => {
+  try {
+    const { wechat, alipay, message } = req.body;
+    if (wechat !== undefined) db.setConfig('tip_wechat_qr', wechat);
+    if (alipay !== undefined) db.setConfig('tip_alipay_qr', alipay);
+    if (message !== undefined) db.setConfig('tip_message', message);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 管理员登录
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
@@ -201,10 +228,24 @@ io.on('connection', (socket) => {
     socket.join(`request-${requestId}`);
   });
 
+  // 客人端请求队列更新
+  socket.on('join-guest', () => {
+    socket.join('guests');
+    // 发送当前队列给客人
+    const queue = db.getRequests();
+    socket.emit('queue-update', queue);
+  });
+
   socket.on('disconnect', () => {
     console.log('客户端断开:', socket.id);
   });
 });
+
+// 广播队列给所有客人
+function broadcastQueue() {
+  const queue = db.getRequests();
+  io.to('guests').emit('queue-update', queue);
+}
 
 // 启动服务
 async function start() {

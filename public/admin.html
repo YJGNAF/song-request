@@ -97,12 +97,26 @@
         <div class="song-manage-list" id="songManageList"></div>
       </div>
 
-      <!-- 右下：今日热门 -->
+      <!-- 右下：今日热门 + 打赏 -->
       <div class="admin-panel">
         <h2>🔥 今日热门 Top 10</h2>
         <ul class="hot-list" id="hotList">
           <li class="empty-state" style="padding:20px;"><p>暂无数据</p></li>
         </ul>
+
+        <div class="tip-settings">
+          <h2 style="margin-top:8px;">💰 收款码设置</h2>
+          <label>打赏文案</label>
+          <input type="text" id="tipMessage" placeholder="喜欢我的演唱吗？打个赏吧~">
+          <label>微信收款码图片URL</label>
+          <input type="text" id="tipWechatUrl" placeholder="https://... 或留空不显示">
+          <label>支付宝收款码图片URL</label>
+          <input type="text" id="tipAlipayUrl" placeholder="https://... 或留空不显示">
+          <p style="font-size:11px;color:var(--text-muted);margin:4px 0;">
+            💡 用图床工具上传收款码图片，粘贴链接即可
+          </p>
+          <button class="btn-add" id="btnSaveTip" style="margin-top:8px;">💾 保存收款码</button>
+        </div>
       </div>
     </div>
   </div>
@@ -204,6 +218,7 @@
       await loadAllRequests();
       await loadSongManage();
       await loadStats();
+      await loadTipSettings();
       updateStats();
       updateClock();
       setInterval(updateClock, 30000);
@@ -470,7 +485,31 @@
 
     loginPassword.focus();
 
-    // 定期刷新统计
+    // ===== 打赏设置 =====
+    async function loadTipSettings() {
+      try {
+        const res = await api('/api/tip-config');
+        const cfg = await res.json();
+        document.getElementById('tipMessage').value = cfg.message || '';
+        document.getElementById('tipWechatUrl').value = cfg.wechat || '';
+        document.getElementById('tipAlipayUrl').value = cfg.alipay || '';
+      } catch (err) { console.error(err); }
+    }
+
+    document.getElementById('btnSaveTip').addEventListener('click', async () => {
+      const message = document.getElementById('tipMessage').value.trim();
+      const wechat = document.getElementById('tipWechatUrl').value.trim();
+      const alipay = document.getElementById('tipAlipayUrl').value.trim();
+
+      await api('/api/tip-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, wechat, alipay })
+      });
+      showToast('收款码已保存 ✅');
+    });
+
+    // ===== 定期刷新 =====
     setInterval(() => { if (adminToken) loadStats(); }, 60000);
   </script>
 </body>

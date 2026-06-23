@@ -259,6 +259,34 @@ function getStats() {
   return { todayHot, statusCounts };
 }
 
+// ===== 打赏配置 =====
+
+function initConfigTable() {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS config (
+      key TEXT PRIMARY KEY,
+      value TEXT DEFAULT ''
+    )
+  `);
+}
+
+function getConfig(key) {
+  initConfigTable();
+  const row = queryOne('SELECT value FROM config WHERE key = ?', [key]);
+  return row ? row.value : '';
+}
+
+function setConfig(key, value) {
+  initConfigTable();
+  // upsert
+  const existing = queryOne('SELECT value FROM config WHERE key = ?', [key]);
+  if (existing) {
+    execute('UPDATE config SET value = ? WHERE key = ?', [value, key]);
+  } else {
+    execute('INSERT INTO config (key, value) VALUES (?, ?)', [key, value]);
+  }
+}
+
 module.exports = {
   initDb,
   getSongs,
@@ -273,4 +301,6 @@ module.exports = {
   pinRequest,
   moveRequest,
   getStats,
+  getConfig,
+  setConfig,
 };

@@ -12,6 +12,8 @@ const songList = document.getElementById('songList');
 const myRequestsList = document.getElementById('myRequestsList');
 const myRequestsEmpty = document.getElementById('myRequestsEmpty');
 const toastContainer = document.getElementById('toastContainer');
+const queueList = document.getElementById('queueList');
+const queueEmpty = document.getElementById('queueEmpty');
 
 // ===== Toast 提示 =====
 function showToast(msg, type = 'success') {
@@ -40,7 +42,6 @@ async function loadCategories() {
       categoryTags.appendChild(btn);
     });
 
-    // 点击事件
     categoryTags.querySelectorAll('.category-tag').forEach(tag => {
       tag.addEventListener('click', () => {
         categoryTags.querySelectorAll('.category-tag').forEach(t => t.classList.remove('active'));
@@ -100,12 +101,10 @@ function renderSongs() {
     `;
   }).join('');
 
-  // 绑定点击事件
   songList.querySelectorAll('.btn-request').forEach(btn => {
     btn.addEventListener('click', () => requestSong(btn));
   });
 
-  // 点击歌曲卡片也可以点歌
   songList.querySelectorAll('.song-card').forEach(card => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('.btn-request')) return;
@@ -137,7 +136,6 @@ async function requestSong(btn) {
 
     const request = await res.json();
 
-    // 保存到本地
     myRequests.push({
       id: request.id,
       song_id: songId,
@@ -147,10 +145,8 @@ async function requestSong(btn) {
     });
     saveMyRequests();
 
-    // 监听状态更新
     socket.emit('track-request', request.id);
 
-    // 更新 UI
     btn.classList.add('requested');
     btn.disabled = true;
     btn.textContent = '✓';
@@ -196,7 +192,41 @@ function saveMyRequests() {
   localStorage.setItem('myRequests', JSON.stringify(myRequests));
 }
 
-// ===== WebSocket 事件 =====
+// ===== 实时队列 =====
+function renderQueue(requests) {
+  const pendingAndAccepted = requests.filter(r => r.status === 'pending' || r.status === 'accepted');
+
+  if (pendingAndAccepted.length === 0) {
+    queueEmpty.style.display = 'block';
+    queueList.innerHTML = '';
+    return;
+  }
+
+  queueEmpty.style.display = 'none';
+  const myIds = myRequests.map(r => r.id);
+
+  queueList.innerHTML = pendingAndAccepted.map((r, i) => {
+    const isMine = myIds.includes(r.id);
+    const statusIcon = r.status === 'accepted' ? '🎤' : '⏳';
+    return `
+      <div class="queue-row ${isMine ? 'queue-mine' : ''}">
+        <span class="queue-pos">${i + 1}</span>
+        <span class="queue-status-icon">${statusIcon}</span>
+        <div class="queue-info">
+          <span class="queue-song">${escapeHtml(r.song_name)}</span>
+          <span class="queue-artist">${escapeHtml(r.song_artist)}</span>
+        </div>
+        ${isMine ? '<span class="queue-my-tag">我的</span>' : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+// ===== WebSocket =====
+socket.on('queue-update', (requests) => {
+  renderQueue(requests);
+});
+
 socket.on('status-update', (updated) => {
   const idx = myRequests.findIndex(r => r.id === updated.id);
   if (idx !== -1) {
@@ -223,13 +253,64 @@ searchInput.addEventListener('input', () => {
   }, 300);
 });
 
+// ===== 打赏弹窗 =====
+const tipOverlay = document.getElementById('tipOverlay');
+const btnTip = document.getElementById('btnTip');
+const tipClose = document.getElementById('tipClose');
+const tipMsg = document.getElementById('tipMsg');
+const tipWechat = document.getElementById('tipWechat');
+const tipAlipay = document.getElementById('tipAlipay');
+const tipNoQr = document.getElementById('tipNoQr');
+const tipHint = document.getElementById('tipHint');
+
+btnTip.addEventListener('click', () => {
+  tipOverlay.style.display = 'flex';
+});
+
+tipClose.addEventListener('click', () => {
+  tipOverlay.style.display = 'none';
+});
+
+tipOverlay.addEventListener('click', (e) => {
+  if (e.target === tipOverlay) tipOverlay.style.display = 'none';
+});
+
+async function loadTipConfig() {
+  try {
+    const res = await fetch('/api/tip-config');
+    const cfg = await res.json();
+    tipMsg.textContent = cfg.message || '喜欢我的演唱吗？打个赏吧~';
+    tipHint.textContent = cfg.message || '';
+
+    if (cfg.wechat) {
+      tipWechat.style.display = 'block';
+      document.getElementById('wechatImg').src = cfg.wechat;
+    }
+    if (cfg.alipay) {
+      tipAlipay.style.display = 'block';
+      document.getElementById('alipayImg').src = cfg.alipay;
+    }
+    if (!cfg.wechat && !cfg.alipay) {
+      tipNoQr.style.display = 'block';
+      tipHint.textContent = '';
+    } else {
+      btnTip.textContent = '💰 打赏支持';
+    }
+  } catch (err) {
+    console.error('加载打赏配置失败:', err);
+  }
+}
+
 // ===== 初始化 =====
 async function init() {
   await loadCategories();
   await loadSongs();
   renderMyRequests();
+  loadTipConfig();
 
-  // 为已有的请求建立 WebSocket 监听
+  // 加入客人频道，接收实时队列
+  socket.emit('join-guest');
+
   myRequests.forEach(req => {
     socket.emit('track-request', req.id);
   });

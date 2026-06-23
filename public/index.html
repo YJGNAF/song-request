@@ -35,11 +35,47 @@
       </div>
     </div>
 
+    <!-- 实时点歌队列 -->
+    <div class="live-queue" id="liveQueue">
+      <h3>🎤 实时点歌队列</h3>
+      <div class="empty-state" id="queueEmpty">
+        <div class="icon">📭</div>
+        <p>还没有人点歌，快来抢沙发 🎵</p>
+      </div>
+      <div id="queueList"></div>
+    </div>
+
     <!-- 我的点歌 -->
     <div class="my-requests" id="myRequests">
       <h3>📋 我的点歌</h3>
       <div class="empty" id="myRequestsEmpty">还没有点歌，快去选歌吧 🎤</div>
       <div id="myRequestsList"></div>
+    </div>
+
+    <!-- 打赏 -->
+    <div class="tip-section" id="tipSection">
+      <button class="btn-tip" id="btnTip">💰 打赏支持</button>
+      <p class="tip-hint" id="tipHint"></p>
+    </div>
+  </div>
+
+  <!-- 打赏弹窗 -->
+  <div class="tip-overlay" id="tipOverlay" style="display:none;">
+    <div class="tip-modal">
+      <div class="tip-close" id="tipClose">×</div>
+      <h3>💰 喜欢就来打赏吧</h3>
+      <p id="tipMsg" style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;"></p>
+      <div class="tip-qr-row" id="tipQrRow">
+        <div class="tip-qr-item" id="tipWechat" style="display:none;">
+          <img id="wechatImg" src="" alt="微信收款码">
+          <span>微信</span>
+        </div>
+        <div class="tip-qr-item" id="tipAlipay" style="display:none;">
+          <img id="alipayImg" src="" alt="支付宝收款码">
+          <span>支付宝</span>
+        </div>
+      </div>
+      <p class="tip-no-qr" id="tipNoQr" style="display:none;color:var(--text-muted);">歌手还没设置收款码~</p>
     </div>
   </div>
 
