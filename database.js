@@ -103,32 +103,47 @@ function initTables() {
 function seedIfEmpty() {
   const row = queryOne('SELECT COUNT(*) as cnt FROM songs');
   if (row.cnt === 0) {
-    const songs = [
-      ['十年', '陈奕迅', '流行'],
-      ['后来', '刘若英', '流行'],
-      ['告白气球', '周杰伦', '流行'],
-      ['晴天', '周杰伦', '流行'],
-      ['小幸运', '田馥甄', '流行'],
-      ['成都', '赵雷', '民谣'],
-      ['南山南', '马頔', '民谣'],
-      ['理想三旬', '陈鸿宇', '民谣'],
-      ['光辉岁月', 'Beyond', '摇滚'],
-      ['海阔天空', 'Beyond', '摇滚'],
-      ['突然好想你', '五月天', '摇滚'],
-      ['温柔', '五月天', '摇滚'],
-      ['月亮代表我的心', '邓丽君', '经典'],
-      ['甜蜜蜜', '邓丽君', '经典'],
-      ['吻别', '张学友', '经典'],
-      ['她说', '林俊杰', '流行'],
-      ['修炼爱情', '林俊杰', '流行'],
-      ['演员', '薛之谦', '流行'],
-      ['消愁', '毛不易', '流行'],
-      ['起风了', '买辣椒也用券', '流行'],
-    ];
+    // 优先从备份文件加载完整歌曲列表
+    const backupPath = path.join(__dirname, 'songs_backup.json');
+    let songs = [];
+
+    try {
+      if (fs.existsSync(backupPath)) {
+        songs = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+      }
+    } catch (e) {
+      console.log('读取歌曲备份失败，使用默认歌曲');
+    }
+
+    // 如果备份文件不存在或为空，使用默认歌曲
+    if (!songs || songs.length === 0) {
+      songs = [
+        { name: '十年', artist: '陈奕迅', category: '流行' },
+        { name: '后来', artist: '刘若英', category: '流行' },
+        { name: '告白气球', artist: '周杰伦', category: '流行' },
+        { name: '晴天', artist: '周杰伦', category: '流行' },
+        { name: '小幸运', artist: '田馥甄', category: '流行' },
+        { name: '成都', artist: '赵雷', category: '民谣' },
+        { name: '南山南', artist: '马頔', category: '民谣' },
+        { name: '理想三旬', artist: '陈鸿宇', category: '民谣' },
+        { name: '光辉岁月', artist: 'Beyond', category: '摇滚' },
+        { name: '海阔天空', artist: 'Beyond', category: '摇滚' },
+        { name: '突然好想你', artist: '五月天', category: '摇滚' },
+        { name: '温柔', artist: '五月天', category: '摇滚' },
+        { name: '月亮代表我的心', artist: '邓丽君', category: '经典' },
+        { name: '甜蜜蜜', artist: '邓丽君', category: '经典' },
+        { name: '吻别', artist: '张学友', category: '经典' },
+        { name: '她说', artist: '林俊杰', category: '流行' },
+        { name: '修炼爱情', artist: '林俊杰', category: '流行' },
+        { name: '演员', artist: '薛之谦', category: '流行' },
+        { name: '消愁', artist: '毛不易', category: '流行' },
+        { name: '起风了', artist: '买辣椒也用券', category: '流行' },
+      ];
+    }
 
     const stmt = db.prepare('INSERT INTO songs (name, artist, category) VALUES (?, ?, ?)');
     for (const s of songs) {
-      stmt.bind(s);
+      stmt.bind([s.name, s.artist, s.category]);
       stmt.step();
       stmt.reset();
     }
