@@ -1,5 +1,16 @@
 // ===== 全局状态 =====
 const socket = io();
+
+// 每日00:00自动清空本地点歌记录
+(function() {
+  const today = new Date().toDateString();
+  const savedDate = localStorage.getItem('requestDate');
+  if (savedDate !== today) {
+    localStorage.removeItem('myRequests');
+    localStorage.setItem('requestDate', today);
+  }
+})();
+
 let myRequests = JSON.parse(localStorage.getItem('myRequests') || '[]');
 let currentCategory = '';
 let allSongs = [];
