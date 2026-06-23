@@ -182,6 +182,13 @@ body {
 }
 
 /* ===== 歌曲列表 ===== */
+.song-list-title {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin: 20px 0 10px;
+  text-align: center;
+}
+
 .song-list {
   display: flex;
   flex-direction: column;
