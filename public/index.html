@@ -16,6 +16,16 @@
   </div>
 
   <div class="container">
+    <!-- 无歌手在岗提示 -->
+    <div class="no-singer-msg" id="noSingerMsg" style="display:none;">
+      <div class="no-singer-icon">🎶</div>
+      <h2>当前还没有歌手在岗哦~</h2>
+      <p class="no-singer-time">驻唱时间：每周五、周六 18:00~00:00</p>
+      <p class="no-singer-bye">期待您的到来哦~</p>
+    </div>
+
+    <!-- 点歌内容区 -->
+    <div id="songContent" style="display:none;">
     <!-- 搜索框 -->
     <div class="search-box">
       <input type="text" id="searchInput" placeholder="搜索歌曲名或歌手..." autocomplete="off">
@@ -58,6 +68,7 @@
         <p>加载中...</p>
       </div>
     </div>
+    </div><!-- end songContent -->
   </div>
 
   <!-- 打赏弹窗 -->

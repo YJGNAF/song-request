@@ -763,6 +763,35 @@ body {
   .add-song-form { flex-direction: column; }
 }
 
+/* ===== 无歌手在岗提示 ===== */
+.no-singer-msg {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.no-singer-msg .no-singer-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.no-singer-msg h2 {
+  font-size: 18px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.no-singer-time {
+  font-size: 14px;
+  color: var(--accent);
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.no-singer-bye {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 /* ===== 实时队列 ===== */
 .live-queue {
   margin-top: 24px;

@@ -224,10 +224,26 @@ app.post('/api/admin/login', (req, res) => {
   return res.status(401).json({ error: '密码错误' });
 });
 
+// 获取当前在岗歌手
+app.get('/api/active-singers', (req, res) => {
+  res.json({ singers: getActiveSingerIds() });
+});
+
 // 验证 token
 app.get('/api/admin/verify', adminAuth, (req, res) => {
   res.json({ valid: true, singer: { id: req.singer.id, name: req.singer.name } });
 });
+
+// ===== 在岗歌手追踪 =====
+const activeSingers = new Map(); // socketId -> { id, name }
+
+function getActiveSingerIds() {
+  return [...new Set([...activeSingers.values()].map(s => s.id))];
+}
+
+function broadcastActiveSingers() {
+  io.to('guests').emit('active-singers', getActiveSingerIds());
+}
 
 // ===== WebSocket =====
 io.on('connection', (socket) => {
@@ -239,6 +255,8 @@ io.on('connection', (socket) => {
     if (singer) {
       socket.join('admin');
       socket.singerId = singer.id;
+      activeSingers.set(socket.id, { id: singer.id, name: singer.name });
+      broadcastActiveSingers();
       socket.emit('admin-joined', { success: true, singer: { id: singer.id, name: singer.name } });
       // 发送当前歌手的待处理列表
       socket.emit('queue-update', db.getRequests('pending', singer.id));
@@ -255,13 +273,18 @@ io.on('connection', (socket) => {
   // 客人端请求队列更新
   socket.on('join-guest', () => {
     socket.join('guests');
-    // 发送当前队列给客人
+    // 发送当前队列和活跃歌手
     const queue = db.getRequests();
     socket.emit('queue-update', queue);
+    socket.emit('active-singers', getActiveSingerIds());
   });
 
   socket.on('disconnect', () => {
     console.log('客户端断开:', socket.id);
+    if (activeSingers.has(socket.id)) {
+      activeSingers.delete(socket.id);
+      broadcastActiveSingers();
+    }
   });
 });
 

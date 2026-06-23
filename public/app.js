@@ -4,6 +4,7 @@ let myRequests = JSON.parse(localStorage.getItem('myRequests') || '[]');
 let currentCategory = '';
 let allSongs = [];
 let searchTimer = null;
+let activeSingerIds = [];
 
 // ===== DOM 元素 =====
 const searchInput = document.getElementById('searchInput');
@@ -14,6 +15,8 @@ const myRequestsEmpty = document.getElementById('myRequestsEmpty');
 const toastContainer = document.getElementById('toastContainer');
 const queueList = document.getElementById('queueList');
 const queueEmpty = document.getElementById('queueEmpty');
+const noSingerMsg = document.getElementById('noSingerMsg');
+const songContent = document.getElementById('songContent');
 
 // ===== Toast 提示 =====
 function showToast(msg, type = 'success') {
@@ -227,6 +230,23 @@ socket.on('queue-update', (requests) => {
   renderQueue(requests);
 });
 
+socket.on('active-singers', (singers) => {
+  activeSingerIds = singers;
+  updatePageVisibility();
+});
+
+function updatePageVisibility() {
+  if (activeSingerIds.length === 0) {
+    noSingerMsg.style.display = 'block';
+    songContent.style.display = 'none';
+  } else {
+    noSingerMsg.style.display = 'none';
+    songContent.style.display = 'block';
+    loadSongs();
+    loadCategories();
+  }
+}
+
 socket.on('status-update', (updated) => {
   const idx = myRequests.findIndex(r => r.id === updated.id);
   if (idx !== -1) {
@@ -303,12 +323,10 @@ async function loadTipConfig() {
 
 // ===== 初始化 =====
 async function init() {
-  await loadCategories();
-  await loadSongs();
   renderMyRequests();
   loadTipConfig();
 
-  // 加入客人频道，接收实时队列
+  // 加入客人频道，接收实时队列和活跃歌手
   socket.emit('join-guest');
 
   myRequests.forEach(req => {
