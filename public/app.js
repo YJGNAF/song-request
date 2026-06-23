@@ -67,7 +67,10 @@ async function loadSongs() {
     if (currentCategory) params.set('category', currentCategory);
 
     const res = await fetch(`/api/songs?${params.toString()}`);
-    allSongs = await res.json();
+    const all = await res.json();
+
+    // 只显示在岗歌手的歌曲
+    allSongs = all.filter(s => activeSingerIds.includes(s.singer));
     renderSongs();
   } catch (err) {
     console.error('加载歌曲失败:', err);
