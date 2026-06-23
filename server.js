@@ -189,19 +189,19 @@ app.get('/api/stats', adminAuth, (req, res) => {
   }
 });
 
-// 获取打赏配置（客人端公开）
+// 获取打赏配置（客人端公开，优先用环境变量）
 app.get('/api/tip-config', (req, res) => {
   try {
-    const wechat = db.getConfig('tip_wechat_qr');
-    const alipay = db.getConfig('tip_alipay_qr');
-    const message = db.getConfig('tip_message') || '喜欢我的演唱吗？打个赏吧~';
+    const wechat = process.env.TIP_WECHAT_QR || db.getConfig('tip_wechat_qr');
+    const alipay = process.env.TIP_ALIPAY_QR || db.getConfig('tip_alipay_qr');
+    const message = process.env.TIP_MESSAGE || db.getConfig('tip_message') || '喜欢我的演唱吗？打个赏吧~';
     res.json({ wechat, alipay, message });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// 设置打赏配置（管理端）
+// 设置打赏配置（管理端，存到数据库）
 app.put('/api/tip-config', adminAuth, (req, res) => {
   try {
     const { wechat, alipay, message } = req.body;
