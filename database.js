@@ -1,31 +1,90 @@
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
+const fs = require('fs');
 const path = require('path');
 
 const DB_PATH = path.join(__dirname, 'song-request.db');
 
-let db;
+let db = null;
+let saveTimer = null;
 
-function getDb() {
-  if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    initTables();
-    seedIfEmpty();
+// 保存到文件（防抖）
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    if (db) {
+      const data = db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(DB_PATH, buffer);
+    }
+  }, 500);
+}
+
+// 初始化数据库
+async function initDb() {
+  if (db) return db;
+
+  const SQL = await initSqlJs();
+
+  // 从文件加载或新建
+  if (fs.existsSync(DB_PATH)) {
+    const fileBuffer = fs.readFileSync(DB_PATH);
+    db = new SQL.Database(fileBuffer);
+  } else {
+    db = new SQL.Database();
   }
+
+  db.run('PRAGMA foreign_keys = ON');
+  initTables();
+  seedIfEmpty();
   return db;
 }
 
+// ===== 辅助函数 =====
+
+// 执行查询，返回对象数组
+function queryAll(sql, params = []) {
+  const stmt = db.prepare(sql);
+  if (params.length > 0) stmt.bind(params);
+  const results = [];
+  while (stmt.step()) {
+    results.push(stmt.getAsObject());
+  }
+  stmt.free();
+  return results;
+}
+
+// 执行查询，返回单个对象
+function queryOne(sql, params = []) {
+  const stmt = db.prepare(sql);
+  if (params.length > 0) stmt.bind(params);
+  let result = null;
+  if (stmt.step()) {
+    result = stmt.getAsObject();
+  }
+  stmt.free();
+  return result;
+}
+
+// 执行修改语句，返回 lastID
+function execute(sql, params = []) {
+  db.run(sql, params);
+  scheduleSave();
+  // sql.js 中，lastInsertRowid 需要这样获取
+  const result = queryOne('SELECT last_insert_rowid() as id');
+  return { lastInsertRowid: result ? result.id : 0 };
+}
+
 function initTables() {
-  db.exec(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS songs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       artist TEXT NOT NULL,
       category TEXT DEFAULT '',
       created_at DATETIME DEFAULT (datetime('now', 'localtime'))
-    );
-
+    )
+  `);
+  db.run(`
     CREATE TABLE IF NOT EXISTS requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       song_id INTEGER NOT NULL,
@@ -34,17 +93,16 @@ function initTables() {
       sort_order INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);
-    CREATE INDEX IF NOT EXISTS idx_requests_song ON requests(song_id);
+    )
   `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_requests_song ON requests(song_id)');
+  scheduleSave();
 }
 
 function seedIfEmpty() {
-  const count = db.prepare('SELECT COUNT(*) as cnt FROM songs').get();
-  if (count.cnt === 0) {
-    const insert = db.prepare('INSERT INTO songs (name, artist, category) VALUES (?, ?, ?)');
+  const row = queryOne('SELECT COUNT(*) as cnt FROM songs');
+  if (row.cnt === 0) {
     const songs = [
       ['十年', '陈奕迅', '流行'],
       ['后来', '刘若英', '流行'],
@@ -68,19 +126,20 @@ function seedIfEmpty() {
       ['起风了', '买辣椒也用券', '流行'],
     ];
 
-    const insertMany = db.transaction(() => {
-      for (const s of songs) {
-        insert.run(...s);
-      }
-    });
-    insertMany();
+    const stmt = db.prepare('INSERT INTO songs (name, artist, category) VALUES (?, ?, ?)');
+    for (const s of songs) {
+      stmt.bind(s);
+      stmt.step();
+      stmt.reset();
+    }
+    stmt.free();
+    scheduleSave();
   }
 }
 
 // ===== 歌曲操作 =====
 
 function getSongs(search = '', category = '') {
-  const db = getDb();
   let sql = 'SELECT * FROM songs WHERE 1=1';
   const params = [];
 
@@ -93,46 +152,38 @@ function getSongs(search = '', category = '') {
     params.push(category);
   }
   sql += ' ORDER BY category, name';
-  return db.prepare(sql).all(...params);
+  return queryAll(sql, params);
 }
 
 function getCategories() {
-  const db = getDb();
-  return db.prepare("SELECT DISTINCT category FROM songs WHERE category != '' ORDER BY category").all();
+  return queryAll("SELECT DISTINCT category FROM songs WHERE category != '' ORDER BY category");
 }
 
 function addSong(name, artist, category = '') {
-  const db = getDb();
-  return db.prepare('INSERT INTO songs (name, artist, category) VALUES (?, ?, ?)').run(name, artist, category);
+  return execute('INSERT INTO songs (name, artist, category) VALUES (?, ?, ?)', [name, artist, category]);
 }
 
 function deleteSong(id) {
-  const db = getDb();
-  return db.prepare('DELETE FROM songs WHERE id = ?').run(id);
+  return execute('DELETE FROM songs WHERE id = ?', [id]);
 }
 
 function getSongCount() {
-  const db = getDb();
-  return db.prepare('SELECT COUNT(*) as cnt FROM songs').get();
+  return queryOne('SELECT COUNT(*) as cnt FROM songs');
 }
 
 // ===== 请求操作 =====
 
 function createRequest(songId, guestName = '') {
-  const db = getDb();
-  const result = db.prepare('INSERT INTO requests (song_id, guest_name) VALUES (?, ?)').run(songId, guestName);
-
-  // 返回完整请求信息
-  return db.prepare(`
+  const result = execute('INSERT INTO requests (song_id, guest_name) VALUES (?, ?)', [songId, guestName]);
+  return queryOne(`
     SELECT r.*, s.name as song_name, s.artist as song_artist
     FROM requests r
     JOIN songs s ON r.song_id = s.id
     WHERE r.id = ?
-  `).get(result.lastInsertRowid);
+  `, [result.lastInsertRowid]);
 }
 
 function getRequests(status = '') {
-  const db = getDb();
   let sql = `
     SELECT r.*, s.name as song_name, s.artist as song_artist
     FROM requests r
@@ -146,58 +197,49 @@ function getRequests(status = '') {
     params.push(status);
   }
   sql += ' ORDER BY r.sort_order DESC, r.created_at ASC';
-  return db.prepare(sql).all(...params);
+  return queryAll(sql, params);
 }
 
 function getRequestById(id) {
-  const db = getDb();
-  return db.prepare(`
+  return queryOne(`
     SELECT r.*, s.name as song_name, s.artist as song_artist
     FROM requests r
     JOIN songs s ON r.song_id = s.id
     WHERE r.id = ?
-  `).get(id);
+  `, [id]);
 }
 
 function updateRequestStatus(id, status) {
-  const db = getDb();
-  db.prepare('UPDATE requests SET status = ? WHERE id = ?').run(status, id);
+  execute('UPDATE requests SET status = ? WHERE id = ?', [status, id]);
   return getRequestById(id);
 }
 
 function pinRequest(id) {
-  const db = getDb();
-  // 置顶：设为当前最大 sort_order + 1
-  const max = db.prepare('SELECT MAX(sort_order) as mx FROM requests').get();
+  const max = queryOne('SELECT MAX(sort_order) as mx FROM requests');
   const newOrder = (max.mx || 0) + 1;
-  db.prepare('UPDATE requests SET sort_order = ? WHERE id = ?').run(newOrder, id);
+  execute('UPDATE requests SET sort_order = ? WHERE id = ?', [newOrder, id]);
   return getRequestById(id);
 }
 
 function moveRequest(id, direction) {
-  // direction: 'up' or 'down' — 交换相邻请求的 sort_order
-  const db = getDb();
-  const current = db.prepare('SELECT * FROM requests WHERE id = ?').get(id);
+  const current = queryOne('SELECT * FROM requests WHERE id = ?', [id]);
   if (!current) return null;
 
   const sql = direction === 'up'
-    ? `SELECT * FROM requests WHERE sort_order > ? AND status = 'pending' ORDER BY sort_order ASC LIMIT 1`
-    : `SELECT * FROM requests WHERE sort_order < ? AND status = 'pending' ORDER BY sort_order DESC LIMIT 1`;
+    ? "SELECT * FROM requests WHERE sort_order > ? AND status = 'pending' ORDER BY sort_order ASC LIMIT 1"
+    : "SELECT * FROM requests WHERE sort_order < ? AND status = 'pending' ORDER BY sort_order DESC LIMIT 1";
 
-  const neighbor = db.prepare(sql).get(current.sort_order);
+  const neighbor = queryOne(sql, [current.sort_order]);
   if (!neighbor) return current;
 
-  // 交换 sort_order
-  db.prepare('UPDATE requests SET sort_order = ? WHERE id = ?').run(neighbor.sort_order, current.id);
-  db.prepare('UPDATE requests SET sort_order = ? WHERE id = ?').run(current.sort_order, neighbor.id);
+  execute('UPDATE requests SET sort_order = ? WHERE id = ?', [neighbor.sort_order, current.id]);
+  execute('UPDATE requests SET sort_order = ? WHERE id = ?', [current.sort_order, neighbor.id]);
 
   return getRequestById(id);
 }
 
 function getStats() {
-  const db = getDb();
-  // 今日热门歌曲 Top 10（当天被点次数）
-  const todayHot = db.prepare(`
+  const todayHot = queryAll(`
     SELECT s.name, s.artist, COUNT(r.id) as count
     FROM requests r
     JOIN songs s ON r.song_id = s.id
@@ -205,21 +247,20 @@ function getStats() {
     GROUP BY s.id
     ORDER BY count DESC
     LIMIT 10
-  `).all();
+  `);
 
-  // 各状态数量
-  const statusCounts = db.prepare(`
+  const statusCounts = queryAll(`
     SELECT status, COUNT(*) as count
     FROM requests
     WHERE date(created_at) = date('now', 'localtime')
     GROUP BY status
-  `).all();
+  `);
 
   return { todayHot, statusCounts };
 }
 
 module.exports = {
-  getDb,
+  initDb,
   getSongs,
   getCategories,
   addSong,

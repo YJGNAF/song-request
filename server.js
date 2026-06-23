@@ -207,9 +207,14 @@ io.on('connection', (socket) => {
 });
 
 // 启动服务
-server.listen(PORT, () => {
-  console.log(`🎵 点歌服务已启动: http://localhost:${PORT}`);
-  console.log(`📱 客人页面: http://localhost:${PORT}`);
-  console.log(`🔧 管理页面: http://localhost:${PORT}/admin.html`);
-  console.log(`🔑 管理密码: ${ADMIN_PASSWORD}`);
-});
+async function start() {
+  await db.initDb();
+  server.listen(PORT, () => {
+    console.log(`🎵 点歌服务已启动: http://localhost:${PORT}`);
+    console.log(`📱 客人页面: http://localhost:${PORT}`);
+    console.log(`🔧 管理页面: http://localhost:${PORT}/admin.html`);
+    console.log(`🔑 管理密码: ${ADMIN_PASSWORD}`);
+  });
+}
+
+start();
